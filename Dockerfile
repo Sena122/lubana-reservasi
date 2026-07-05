@@ -24,7 +24,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy all files
+# Copy all files EXCEPT vendor and node_modules
 COPY . /var/www/html
 
 # Install dependencies
@@ -34,12 +34,12 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Configure Nginx
+# Copy Nginx configuration
 RUN echo 'server { \
     listen 80; \
     server_name _; \
     root /var/www/html/public; \
-    index index.php; \
+    index index.php index.html; \
     charset utf-8; \
     location / { \
         try_files $uri $uri/ /index.php?$query_string; \
@@ -55,9 +55,10 @@ RUN echo 'server { \
     } \
 }' > /etc/nginx/sites-available/default
 
-# Configure Supervisor
+# Copy Supervisor config
 RUN echo '[supervisord] \n\
 nodaemon=true \n\
+user=root \n\
 \n\
 [program:php-fpm] \n\
 command=php-fpm \n\
