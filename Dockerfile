@@ -43,7 +43,6 @@ RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 # ==============================================================================
 RUN rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-available/default
 
-# Kita arahkan fastcgi_pass langsung ke socket php-fpm bawaan docker image (/var/run/php-fpm.sock)
 RUN echo 'server { \
     listen 80; \
     server_name _; \
@@ -63,9 +62,9 @@ RUN echo 'server { \
     } \
 }' > /etc/nginx/sites-enabled/default
 
-# Paksa konfigurasi global PHP-FPM untuk membuat file socket tersebut
+# Mengubah konfigurasi PHP-FPM agar menggunakan UNIX Socket dengan permission penuh (0666)
 RUN sed -i 's|listen = 127.0.0.1:9000|listen = /var/run/php-fpm.sock|g' /usr/local/etc/php-fpm.d/www.conf || true
-RUN echo "listen.owner = www-data\nlisten.group = www-data\nlisten.mode = 0660" >> /usr/local/etc/php-fpm.d/www.conf
+RUN echo "\nlisten.owner = www-data\nlisten.group = www-data\nlisten.mode = 0666" >> /usr/local/etc/php-fpm.d/www.conf
 
 # ==============================================================================
 # 4. SUPERVISOR CONFIGURATION
