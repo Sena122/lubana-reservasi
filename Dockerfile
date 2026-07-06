@@ -78,5 +78,4 @@ stdout_logfile_maxbytes=0 \n\
 stderr_logfile=/dev/stderr \n\
 stderr_logfile_maxbytes=0' > /etc/supervisor/conf.d/laravel.conf
 
-# PERBAIKAN SAKTI: Patch port, otomatis jalankan migrasi, link storage, seeder, lalu hidupkan supervisord!
-CMD sh -c "sed -i 's/listen 80;/listen '\${PORT}';/g' /etc/nginx/sites-available/default && php artisan migrate --force && php artisan storage:link --force || true && php artisan db:seed --class=AdminUserSeeder --force || true && exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf"
+CMD sh -c "sed -i 's/listen 80;/listen '\${PORT}';/g' /etc/nginx/sites-available/default && exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf"
