@@ -28,23 +28,22 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # ==============================================================================
 WORKDIR /var/www/html
 
-# Menyalin seluruh file project (Pastikan vendor & node_modules sudah masuk .dockerignore)
+# Menyalin seluruh file project
 COPY . /var/www/html
 
 # Install dependencies Laravel lewat Composer
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Mengatur permissions folder storage dan cache agar bisa ditulis oleh Nginx/PHP-FPM
+# Mengatur permissions folder storage dan cache
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # ==============================================================================
-# 3. NGINX & PHP-FPM SINKRONISASI (SOLUSI FIX 502 BAD GATEWAY)
+# 3. NGINX CONFIGURATION (MENGGUNAKAN UNIX SOCKET DEFAULT PHP-FPM)
 # ==============================================================================
-# Hapus konfigurasi default bawaan Nginx agar tidak bentrok
 RUN rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-available/default
 
-# Buat konfigurasi Nginx baru langsung di dalam folder sites-enabled
+# Kita arahkan fastcgi_pass langsung ke socket php-fpm bawaan docker image (/var/run/php-fpm.sock)
 RUN echo 'server { \
     listen 80; \
     server_name _; \
@@ -55,7 +54,7 @@ RUN echo 'server { \
         try_files $uri $uri/ /index.php?$query_string; \
     } \
     location ~ \.php$ { \
-        fastcgi_pass 127.0.0.1:9000; \
+        fastcgi_pass unix:/var/run/php-fpm.sock; \
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; \
         include fastcgi_params; \
     } \
@@ -64,12 +63,12 @@ RUN echo 'server { \
     } \
 }' > /etc/nginx/sites-enabled/default
 
-# Paksa PHP-FPM untuk mendengarkan port 127.0.0.1:9000 (bukan unix socket) agar sinkron dengan Nginx
-RUN sed -i 's|listen = /run/php/php8.2-fpm.sock|listen = 127.0.0.1:9000|g' /usr/local/etc/php-fpm.d/www.conf || \
-    sed -i 's|listen = /run/php/php8.2-fpm.sock|listen = 127.0.0.1:9000|g' /etc/php/8.2/fpm/pool.d/www.conf
+# Paksa konfigurasi global PHP-FPM untuk membuat file socket tersebut
+RUN sed -i 's|listen = 127.0.0.1:9000|listen = /var/run/php-fpm.sock|g' /usr/local/etc/php-fpm.d/www.conf || true
+RUN echo "listen.owner = www-data\nlisten.group = www-data\nlisten.mode = 0660" >> /usr/local/etc/php-fpm.d/www.conf
 
 # ==============================================================================
-# 4. SUPERVISOR CONFIGURATION (MENGELOLA PROSES NGINX & PHP-FPM)
+# 4. SUPERVISOR CONFIGURATION
 # ==============================================================================
 RUN echo '[supervisord] \n\
 nodaemon=true \n\
@@ -96,5 +95,4 @@ stderr_logfile_maxbytes=0' > /etc/supervisor/conf.d/laravel.conf
 # ==============================================================================
 # 5. ENTRYPOINT COMMAND
 # ==============================================================================
-# Mengubah port 80 secara dinamis sesuai variabel ${PORT} dari Railway, lalu hidupkan Supervisor
 CMD sh -c "sed -i 's/listen 80;/listen '\${PORT}';/g' /etc/nginx/sites-enabled/default && exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf"
