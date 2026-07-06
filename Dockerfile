@@ -34,7 +34,7 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Copy Nginx configuration (Biarkan listen 80, nanti diubah dinamis oleh CMD)
+# Copy Nginx configuration
 RUN echo 'server { \
     listen 80; \
     server_name _; \
@@ -78,5 +78,5 @@ stdout_logfile_maxbytes=0 \n\
 stderr_logfile=/dev/stderr \n\
 stderr_logfile_maxbytes=0' > /etc/supervisor/conf.d/laravel.conf
 
-# Trik Sakti: Ubah port 80 di config Nginx secara dinamis sesuai port dari Railway, lalu jalankan master supervisord
-CMD sh -c "sed -i 's/listen 80;/listen '${PORT}';/g' /etc/nginx/sites-available/default && exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf"
+# PERBAIKAN SAKTI: Patch port, otomatis jalankan migrasi, link storage, seeder, lalu hidupkan supervisord!
+CMD sh -c "sed -i 's/listen 80;/listen '\${PORT}';/g' /etc/nginx/sites-available/default && php artisan migrate --force && php artisan storage:link --force || true && php artisan db:seed --class=AdminUserSeeder --force || true && exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf"
